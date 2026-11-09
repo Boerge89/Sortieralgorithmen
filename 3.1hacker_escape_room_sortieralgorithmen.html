@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escape Room: Hacker Attack - Sortieralgorithmen</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#0a0e17',
+                            card: '#111827',
+                            border: '#1f2937',
+                            green: '#10b981',
+                            greenGlow: '#059669',
+                            cyan: '#06b6d4',
+                            magenta: '#ec4899',
+                            yellow: '#f59e0b',
+                            red: '#ef4444'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['Fira Code', 'Courier New', 'monospace'],
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom Glowing & Terminal Effects */
+        .glow-green {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+        }
+        .glow-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+        }
+        .glow-red {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+        }
+        .text-shadow-green {
+            text-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+        }
+        .text-shadow-cyan {
+            text-shadow: 0 0 8px rgba(6, 182, 212, 0.6);
+        }
+        .scanline {
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0, 0, 0, 0.3) 50%,
+                rgba(0, 0, 0, 0.3)
+            );
+            background-size: 100% 4px;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0e17;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #10b981;
+        }
+    </style>
+</head>
+<body class="bg-cyber-bg text-gray-200 font-sans min-h-screen flex flex-col justify-between selection:bg-cyber-green selection:text-black">
+
+    <!-- Header / Terminal Status Topbar -->
+    <header class="border-b border-cyber-border bg-cyber-card/90 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <span class="flex h-3 w-3 relative">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                </span>
+                <h1 class="font-mono text-lg font-bold tracking-wider text-cyber-green text-shadow-green flex items-center gap-2">
+                    <i class="fa-solid font-mono fa-terminal"></i> SYSTEM_LOCKOUT // INFORMATIK_LABOR
+                </h1>
+            </div>
+
+            <!-- Lock Status & PIN Progress -->
+            <div class="flex items-center gap-6 font-mono text-sm">
+                <div class="flex items-center gap-2 bg-black/50 px-3 py-1.5 rounded border border-cyber-border">
+                    <span class="text-gray-400">DISKS:</span>
+                    <span id="pin-digits-display" class="tracking-widest font-bold text-cyber-yellow text-lg">
+                        <span id="d1" class="border-b-2 border-cyber-border px-1">?</span>
+                        <span id="d2" class="border-b-2 border-cyber-border px-1">?</span>
+                        <span id="d3" class="border-b-2 border-cyber-border px-1">?</span>
+                        <span id="d4" class="border-b-2 border-cyber-border px-1">?</span>
+                    </span>
+                </div>
+                <button onclick="switchTab('keypad-stage')" class="bg-cyber-magenta/20 border border-cyber-magenta text-cyber-magenta hover:bg-cyber-magenta hover:text-black transition px-3 py-1.5 rounded font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-key"></i> TÜR-PAD
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full">
+
+        <!-- Navigation Tabs for Stages -->
+        <div class="flex flex-wrap gap-2 mb-6 font-mono text-sm border-b border-cyber-border pb-3">
+            <button id="tab-intro" onclick="switchTab('intro')" class="tab-btn bg-cyber-green text-black font-bold px-4 py-2 rounded-t transition flex items-center gap-2">
+                <i class="fa-solid fa-shield-cat"></i> STORY
+            </button>
+            <button id="tab-stage1" onclick="switchTab('stage1')" class="tab-btn bg-cyber-card border border-cyber-border text-gray-400 hover:text-white px-4 py-2 rounded-t transition flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full bg-cyber-border text-xs flex items-center justify-center font-bold">1</span> BUBBLESORT
+            </button>
+            <button id="tab-stage2" onclick="switchTab('stage2')" class="tab-btn bg-cyber-card border border-cyber-border text-gray-400 hover:text-white px-4 py-2 rounded-t transition flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full bg-cyber-border text-xs flex items-center justify-center font-bold">2</span> INSERTIONSORT
+            </button>
+            <button id="tab-stage3" onclick="switchTab('stage3')" class="tab-btn bg-cyber-card border border-cyber-border text-gray-400 hover:text-white px-4 py-2 rounded-t transition flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full bg-cyber-border text-xs flex items-center justify-center font-bold">3</span> SELECTIONSORT
+            </button>
+            <button id="tab-stage4" onclick="switchTab('stage4')" class="tab-btn bg-cyber-card border border-cyber-border text-gray-400 hover:text-white px-4 py-2 rounded-t transition flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full bg-cyber-border text-xs flex items-center justify-center font-bold">4</span> QUICKSORT
+            </button>
+            <button id="tab-keypad-stage" onclick="switchTab('keypad-stage')" class="tab-btn bg-cyber-card border border-cyber-border text-cyber-yellow hover:bg-cyber-yellow/10 px-4 py-2 rounded-t transition flex items-center gap-2 ml-auto">
+                <i class="fa-solid fa-unlock-keyhole"></i> SCHLOSS AUFBRECHEN
+            </button>
+        </div>
+
+        <!-- STAGE: INTRO / STORY -->
+        <section id="intro" class="stage-content space-y-6">
+            <div class="bg-cyber-card border border-cyber-green/50 rounded-lg p-6 glow-green relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10 text-cyber-green">
+                    <i class="fa-solid fa-user-ninja text-9xl"></i>
+                </div>
+                <h2 class="text-2xl font-mono font-bold text-cyber-green text-shadow-green mb-4 flex items-center gap-3">
+                    <i class="fa-solid fa-user-secret"></i> BEDROHUNGSMELDUNG: HACKER "Ghost_Root" ATTAKTIERT
+                </h2>
+                <div class="space-y-4 font-mono text-sm leading-relaxed text-gray-300">
+                    <p class="p-3 bg-black/60 border-l-4 border-cyber-red rounded text-cyber-red">
+                        [SYSTEM WARNUNG]: Der Raum wurde elektronisch verriegelt. Belüftungssteuerung reagiert nicht. 
+                        Zeit bis zur endgültigen Systemabschaltung: Aktiviert.
+                    </p>
+                    <p>
+                        Der mysteriöse Hacker <strong class="text-cyber-cyan">Ghost_Root</strong> hat die Kontrolle über den Informatik-Server übernommen. Er fordert den Beweis, dass ihr wahre Meister der Sortieralgorithmen seid!
+                    </p>
+                    <p>
+                        Um das Sicherheitsschloss der Tür zu knacken, müsst ihr <strong class="text-cyber-green">4 verschlüsselte Rätsel-Passagen (Stages 1 bis 4)</strong> lösen. Jedes gelöste Rätsel schaltet eine **Ziffer des Master-PINs** frei.
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
+                        <div class="bg-black/40 p-4 border border-cyber-border rounded">
+                        <h3 class="text-cyber-cyan font-bold mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-graduation-cap"></i> Eure Lernziele heute:
+                        </h3>
+                        <ul class="list-disc list-inside space-y-1 text-xs text-gray-300">
+                            <li>Funktionsweise & Tracing von <strong>Bubblesort</strong> & <strong>Selectionsort</strong></li>
+                            <li>Fehleranalyse (Debugging) in Java-Code für <strong>Insertionsort</strong></li>
+                            <li><strong>Quicksort</strong> Partitionierung & Rekursionsverständnis</li>
+                            <li>Unterscheidung: <strong>Iterativ vs. Rekursiv</strong> & Laufzeiten (<code class="text-cyber-yellow">O(n²)</code> vs <code class="text-cyber-cyan">O(n log n)</code>)</li>
+                        </ul>
+                    </div>
+                        <div class="bg-black/40 p-4 border border-cyber-border rounded flex flex-col justify-between">
+                            <div>
+                                <h3 class="text-cyber-yellow font-bold mb-2 flex items-center gap-2">
+                                    <i class="fa-solid fa-lightbulb"></i> Hilfesystem:
+                                </h3>
+                                <p class="text-xs text-gray-300">
+                                    In jeder Stage steht euch ein <strong>Gestuftes Hilfesystem</strong> zur Verfügung. Versucht es zuerst alleine, nutzt Tipps nur im Notfall!
+                                </p>
+                            </div>
+                            <button onclick="switchTab('stage1')" class="mt-4 bg-cyber-green hover:bg-cyber-greenGlow text-black font-mono font-bold py-2 px-4 rounded transition text-center shadow-lg">
+                                MISSION STARTEN <i class="fa-solid fa-arrow-right ml-2"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- STAGE 1: BUBBLESORT -->
+        <section id="stage1" class="stage-content hidden space-y-6">
+            <div class="bg-cyber-card border border-cyber-border rounded-lg p-6">
+                <div class="flex justify-between items-start mb-4 border-b border-cyber-border pb-3">
+                    <div>
+                        <span class="text-xs font-mono text-cyber-green">STAGE 01 // ITERATIVE SORTING</span>
+                        <h2 class="text-xl font-mono font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-soap text-cyber-cyan"></i> Bubblesort Tracing & Durchlauf
+                        </h2>
+                    </div>
+                    <button onclick="toggleHint('hint-stage1')" class="text-xs font-mono bg-cyber-yellow/10 border border-cyber-yellow text-cyber-yellow px-3 py-1.5 rounded hover:bg-cyber-yellow/20 transition flex items-center gap-2">
+                        <i class="fa-solid fa-lightbulb"></i> Tipp anfordern
+                    </button>
+                </div>
+
+                <!-- Hint Box -->
+                <div id="hint-stage1" class="hidden bg-cyber-yellow/10 border-l-4 border-cyber-yellow p-4 rounded text-sm text-yellow-200 mb-6 font-mono">
+                    <p class="font-bold mb-1"><i class="fa-solid fa-info-circle"></i> Bubblesort-Regel:</p>
+                    <p class="text-xs">Bubblesort vergleicht <strong>immer zwei benachbarte Elemente</strong> (`array[j]` und `array[j+1]`). Ist das linke Element größer als das rechte, werden sie <strong>vertauscht</strong>. Größere Zahlen "steigen wie Blasen" nach rechts auf. Nach <u>Pass 1</u> steht das größte Element garantiert ganz rechts!</p>
+                </div>
+
+                <p class="font-mono text-sm text-gray-300 mb-6">
+                    <strong>Hacker-Sperre #1:</strong> Der Hacker hat ein unsortiertes Daten-Array hinterlassen. Führe den <strong>ersten vollständigen Durchlauf (Pass 1)</strong> von Bubblesort auf folgendem Start-Array durch! Vertausche benachbarte Felder interaktiv.
+                </p>
+
+                <!-- Interactive Array Visualizer -->
+                <div class="bg-black/60 p-6 rounded-lg border border-cyber-border mb-6 flex flex-col items-center">
+                    <div class="text-xs font-mono text-gray-400 mb-4 flex gap-4">
+                        <span>Pass 1 - Aktueller Index-Vergleich: <strong id="b-index-compare" class="text-cyber-cyan">0 & 1</strong></span>
+                        <span>Vertauschte Paare in diesem Pass: <strong id="b-swap-count" class="text-cyber-yellow">0</strong></span>
+                    </div>
+
+                    <!-- Array Blocks -->
+                    <div id="bubblesort-array-container" class="flex flex-wrap justify-center gap-3 my-4">
+                        <!-- JS injected array elements -->
+                    </div>
+
+                    <div class="flex gap-4 mt-6">
+                        <button onclick="bubblesortSwap()" class="bg-cyber-cyan text-black font-mono font-bold px-4 py-2 rounded hover:bg-cyan-400 transition flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-rotate"></i> Benachbarte vertauschen
+                        </button>
+                        <button onclick="bubblesortNextStep()" class="bg-cyber-green text-black font-mono font-bold px-4 py-2 rounded hover:bg-emerald-400 transition flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-forward"></i> Nächster Vergleich
+                        </button>
+                        <button onclick="resetBubblesort()" class="bg-gray-700 text-white font-mono text-xs px-3 py-2 rounded hover:bg-gray-600 transition">
+                            <i class="fa-solid fa-arrows-rotate"></i> Reset Stage
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Verification Question -->
+                <div class="bg-black/40 p-4 rounded border border-cyber-border space-y-4 font-mono text-sm">
+                    <label class="block text-gray-300 font-bold">
+                        Frage: Wie lautet das Array exakt nach dem <u>vollständigen 1. Durchlauf (Pass 1)</u>?
+                    </label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <button onclick="checkStage1('A')" class="option-btn border border-cyber-border bg-cyber-card hover:border-cyber-green p-3 rounded text-left transition text-xs font-mono text-gray-300">
+                            A) [ 2, 5, 1, 4, 8, 9 ]
+                        </button>
+                        <button onclick="checkStage1('B')" class="option-btn border border-cyber-border bg-cyber-card hover:border-cyber-green p-3 rounded text-left transition text-xs font-mono text-gray-300">
+                            B) [ 2, 1, 5, 4, 8, 9 ]
+                        </button>
+                        <button onclick="checkStage1('C')" class="option-btn border border-cyber-border bg-cyber-card hover:border-cyber-green p-3 rounded text-left transition text-xs font-mono text-gray-300">
+                            C) [ 1, 2, 4, 5, 8, 9 ]
+                        </button>
+                        <button onclick="checkStage1('D')" class="option-btn border border-cyber-border bg-cyber-card hover:border-cyber-green p-3 rounded text-left transition text-xs font-mono text-gray-300">
+                            D) [ 5, 2, 1, 8, 4, 9 ]
+                        </button>
+                    </div>
+
+                    <!-- Feedback Box -->
+                    <div id="feedback-stage1" class="hidden p-3 rounded font-mono text-xs font-bold"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- STAGE 2: INSERTIONSORT -->
+        <section id="stage2" class="stage-content hidden space-y-6">
+            <div class="bg-cyber-card border border-cyber-border rounded-lg p-6">
+                <div class="flex justify-between items-start mb-4 border-b border-cyber-border pb-3">
+                    <div>
+                        <span class="text-xs font-mono text-cyber-green">STAGE 02 // CODE DEBUGGING & CATEGORIZATION</span>
+                        <h2 class="text-xl font-mono font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-bug text-cyber-magenta"></i> Insertionsort Code-Bug-Hunt
+                        </h2>
+                    </div>
+                    <button onclick="toggleHint('hint-stage2')" class="text-xs font-mono bg-cyber-yellow/10 border border-cyber-yellow text-cyber-yellow px-3 py-1.5 rounded hover:bg-cyber-yellow/20 transition flex items-center gap-2">
+                        <i class="fa-solid fa-lightbulb"></i> Tipp anfordern
+                    </button>
+                </div>
+
+                <!-- Hint Box -->
+                <div id="hint-stage2" class="hidden bg-cyber-yellow/10 border-l-4 border-cyber-yellow p-4 rounded text-sm text-yellow-200 mb-6 font-mono">
+                    <p class="font-bold mb-1"><i class="fa-solid fa-info-circle"></i> Insertionsort-Logik:</p>
+                    <p class="text-xs">Insertionsort baut das sortierte Array von links nach rechts auf. In der inneren `while`-Schleife wird das aktuelle Element (`key`) so lange nach links verschoben, wie das Vergleichselement <strong>größer</strong> als `key` ist (`arr[j] > key`) UND der Index `j >= 0` bleibt.</p>
+                </div>
+
+                <p class="font-mono text-sm text-gray-300 mb-4">
+                    <strong>Hacker-Sperre #2:</strong> Ghost_Root hat den Java-Quellcode für <strong>Insertionsort</strong> manipuliert. 
+                    Klicke direkt auf die Zeile im Java-Code, die den gravierenden logischen Fehler enthält!
+                </p>
+
+                <!-- Code Editor Container -->
+                <div class="bg-black/80 rounded-lg border border-cyber-border overflow-hidden font-mono text-sm mb-6">
+                    <div class="bg-cyber-card px-4 py-2 border-b border-cyber-border text-xs text-gray-400 flex justify-between items-center">
+                        <span><i class="fa-brands fa-java text-orange-500"></i> InsertionSort.java</span>
+                        <span class="text-cyber-magenta font-bold">Klicke auf die fehlerhafte Zeile!</span>
+                    </div>
+
+                    <div id="code-lines-container" class="divide-y divide-gray-900">
+                        <!-- Code lines injected dynamically -->
+                    </div>
+                </div>
+
+                <!-- Classification Part -->
+                <div class="bg-black/40 p-4 rounded border border-cyber-border space-y-4 font-mono text-sm">
+                    <label class="block text-gray-300 font-bold">
+                        Zusatzfrage: Zu welcher Kategorie gehört Insertionsort hinsichtlich seiner Struktur & Zeitkomplexität?
+                    </label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <button onclick="checkStage2Sub('A')" class="option-btn-2 border border-cyber-border bg-cyber-card hover:border-cyber-cyan p-3 rounded text-left transition text-xs font-mono text-gray-300">
+                            A) Rekursiv mit Best-Case O(n log n)
+                        </button>
+                        <button onclick="checkStage2Sub('B')" class="option-btn-2 border border-cyber-border bg-cyber-card hover:border-cyber-cyan p-3 rounded text-left transition text-xs font-mono text-gray-300">
+                            B) Iterativ mit Average-Case O(n²)
+                        </button>
+                        <button onclick="checkStage2Sub('C')" class="option-btn-2 border border-cyber-border bg-cyber-card hover:border-cyber-cyan p-3 rounded text-left transition text-xs font-mono text-gray-300">
+                            C) Divide & Conquer (Teile & Herrsche)
+                        </button>
+                        <button onclick="checkStage2Sub('D')" class="option-btn-2 border border-cyber-border bg-cyber-card hover:border-cyber-cyan p-3 rounded text-left transition text-xs font-mono text-gray-300">
+                            D) Nicht-vergleichsbasiert mit O(n)
+                        </button>
+                    </div>
+
+                    <!-- Feedback Box -->
+                    <div id="feedback-stage2" class="hidden p-3 rounded font-mono text-xs font-bold"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- STAGE 3: SELECTIONSORT & CLASSIFICATION -->
+        <section id="stage3" class="stage-content hidden space-y-6">
+            <div class="bg-cyber-card border border-cyber-border rounded-lg p-6">
+                <div class="flex justify-between items-start mb-4 border-b border-cyber-border pb-3">
+                    <div>
+                        <span class="text-xs font-mono text-cyber-green">STAGE 03 // SELECTIONSORT & ALGORITHM TAXONOMY</span>
+                        <h2 class="text-xl font-mono font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-down-short-wide text-cyber-yellow"></i> Selectionsort Trace & Klassifikation
+                        </h2>
+                    </div>
+                    <button onclick="toggleHint('hint-stage3')" class="text-xs font-mono bg-cyber-yellow/10 border border-cyber-yellow text-cyber-yellow px-3 py-1.5 rounded hover:bg-cyber-yellow/20 transition flex items-center gap-2">
+                        <i class="fa-solid fa-lightbulb"></i> Tipp anfordern
+                    </button>
+                </div>
+
+                <!-- Hint Box -->
+                <div id="hint-stage3" class="hidden bg-cyber-yellow/10 border-l-4 border-cyber-yellow p-4 rounded text-sm text-yellow-200 mb-6 font-mono">
+                    <p class="font-bold mb-1"><i class="fa-solid fa-info-circle"></i> Selectionsort & Kategorien:</p>
+                    <p class="text-xs">Selectionsort sucht in jedem Schritt das **Minimum** im verbleibenden unsortierten Teil und tauscht es an die erste freie Stelle des sortierten Teils.<br>
+                    <strong>Iterative Algorithmen:</strong> Nutzen Schleifen (for, while) -> Bubblesort, Insertionsort, Selectionsort.<br>
+                    <strong>Rekursive Algorithmen:</strong> Rufen sich selbst auf (Teile & Herrsche) -> Quicksort, Mergesort.</p>
+                </div>
+
+                <!-- Part 1: Interactive Min Search Trace -->
+                <div class="bg-black/60 p-6 rounded-lg border border-cyber-border mb-6">
+                    <h3 class="text-sm font-mono font-bold text-cyber-yellow mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass"></i> Aufgabe 1: Selectionsort Minimum-Trace
+                    </h3>
+                    <p class="font-mono text-xs text-gray-300 mb-4">
+                        Gegeben ist das Array: <code class="text-cyber-cyan bg-black px-2 py-1 rounded">[ 14, 33, 27, 10, 35, 19 ]</code>.<br>
+                        Welcher Index & Wert wird im <strong>ersten Durchlauf</strong> als kleinstes Element (Minimum) identifiziert und mit Index 0 vertauscht?
+                    </p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 font-mono text-xs">
+                        <button onclick="selectMinChoice('A')" class="stage3-min-btn p-3 border border-cyber-border bg-cyber-card hover:border-cyber-yellow rounded text-left transition">
+                            A) Index 2 (Wert: 27)
+                        </button>
+                        <button onclick="selectMinChoice('B')" class="stage3-min-btn p-3 border border-cyber-border bg-cyber-card hover:border-cyber-yellow rounded text-left transition">
+                            B) Index 3 (Wert: 10)
+                        </button>
+                        <button onclick="selectMinChoice('C')" class="stage3-min-btn p-3 border border-cyber-border bg-cyber-card hover:border-cyber-yellow rounded text-left transition">
+                            C) Index 5 (Wert: 19)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Part 2: Interactive Drag & Drop / Classification Matrix -->
+                <div class="bg-black/60 p-6 rounded-lg border border-cyber-border space-y-4">
+                    <h3 class="text-sm font-mono font-bold text-cyber-green flex items-center gap-2">
+                        <i class="fa-solid fa-diagram-project"></i> Aufgabe 2: Algorithmen-Klassifizierung
+                    </h3>
+                    <p class="font-mono text-xs text-gray-300">
+                        Klicke auf die Algorithmen, um sie der korrekten Kategorie zuzuordnen (Iterativ vs. Rekursiv):
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
+                        <!-- Iterativ Box -->
+                        <div class="border border-cyber-cyan/40 bg-cyber-card/60 p-4 rounded">
+                            <h4 class="text-cyber-cyan font-bold mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-arrows-spin"></i> ITERATIV (Schleifen-basiert)
+                            </h4>
+                            <div id="iterative-dropzone" class="min-h-[100px] border border-dashed border-cyber-border p-2 rounded flex flex-wrap gap-2 items-center">
+                                <!-- Elements dropped here -->
+                            </div>
+                        </div>
+
+                        <!-- Rekursiv Box -->
+                        <div class="border border-cyber-magenta/40 bg-cyber-card/60 p-4 rounded">
+                            <h4 class="text-cyber-magenta font-bold mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-sitemap"></i> REKURSIV (Teile & Herrsche)
+                            </h4>
+                            <div id="recursive-dropzone" class="min-h-[100px] border border-dashed border-cyber-border p-2 rounded flex flex-wrap gap-2 items-center">
+                                <!-- Elements dropped here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pool of draggable/clickable items -->
+                    <div class="mt-4">
+                        <span class="text-xs text-gray-400 font-mono block mb-2">Verfügbare Sortierverfahren (Klicken zum Zuordnen):</span>
+                        <div id="algo-pool" class="flex flex-wrap gap-3 font-mono text-xs">
+                            <button onclick="assignAlgo('Bubblesort')" id="algo-Bubblesort" class="px-3 py-1.5 bg-gray-800 border border-cyber-border hover:border-white rounded text-gray-200">
+                                Bubblesort
+                            </button>
+                            <button onclick="assignAlgo('Quicksort')" id="algo-Quicksort" class="px-3 py-1.5 bg-gray-800 border border-cyber-border hover:border-white rounded text-gray-200">
+                                Quicksort
+                            </button>
+                            <button onclick="assignAlgo('Insertionsort')" id="algo-Insertionsort" class="px-3 py-1.5 bg-gray-800 border border-cyber-border hover:border-white rounded text-gray-200">
+                                Insertionsort
+                            </button>
+                            <button onclick="assignAlgo('Selectionsort')" id="algo-Selectionsort" class="px-3 py-1.5 bg-gray-800 border border-cyber-border hover:border-white rounded text-gray-200">
+                                Selectionsort
+                            </button>
+                        </div>
+                    </div>
+
+                    <button onclick="checkStage3()" class="mt-4 bg-cyber-yellow text-black font-mono font-bold px-4 py-2 rounded hover:bg-yellow-400 transition w-full text-sm">
+                        <i class="fa-solid fa-check-double"></i> Stage 3 Antworten Verifizieren
+                    </button>
+
+                    <!-- Feedback Box -->
+                    <div id="feedback-stage3" class="hidden p-3 rounded font-mono text-xs font-bold"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- STAGE 4: QUICKSORT -->
+        <section id="stage4" class="stage-content hidden space-y-6">
+            <div class="bg-cyber-card border border-cyber-border rounded-lg p-6">
+                <div class="flex justify-between items-start mb-4 border-b border-cyber-border pb-3">
+                    <div>
+                        <span class="text-xs font-mono text-cyber-green">STAGE 04 // RECURSIVE DIVIDE & CONQUER</span>
+                        <h2 class="text-xl font-mono font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-cyber-cyan"></i> Quicksort Pivot-Partitionierung
+                        </h2>
+                    </div>
+                    <button onclick="toggleHint('hint-stage4')" class="text-xs font-mono bg-cyber-yellow/10 border border-cyber-yellow text-cyber-yellow px-3 py-1.5 rounded hover:bg-cyber-yellow/20 transition flex items-center gap-2">
+                        <i class="fa-solid fa-lightbulb"></i> Tipp anfordern
+                    </button>
+                </div>
+
+                <!-- Hint Box -->
+                <div id="hint-stage4" class="hidden bg-cyber-yellow/10 border-l-4 border-cyber-yellow p-4 rounded text-sm text-yellow-200 mb-6 font-mono">
+                    <p class="font-bold mb-1"><i class="fa-solid fa-info-circle"></i> Quicksort Partitionierung:</p>
+                    <p class="text-xs">Bei der Partitionierung wird ein <strong>Pivot-Element</strong> gewählt (z.B. das letzte Element im Array). Danach werden alle Elemente kleiner als das Pivot nach <strong>links</strong> einsortiert, und alle Elemente größer/gleich dem Pivot nach <strong>rechts</strong>. Das Pivot steht danach an seiner endgültigen Position!</p>
+                </div>
+
+                <p class="font-mono text-sm text-gray-300 mb-4">
+                    <strong>Hacker-Sperre #4 (Finales Systemrätsel):</strong> Betrachte folgendes Start-Array für Quicksort:
+                </p>
+
+                <!-- Array Visual -->
+                <div class="bg-black/70 p-4 rounded border border-cyber-border text-center font-mono text-lg tracking-wider mb-6">
+                    <span class="text-gray-400 font-bold">[ </span>
+                    <span class="px-2 text-white">7</span>,
+                    <span class="px-2 text-white">2</span>,
+                    <span class="px-2 text-white">1</span>,
+                    <span class="px-2 text-white">6</span>,
+                    <span class="px-2 text-white">8</span>,
+                    <span class="px-2 text-white">5</span>,
+                    <span class="px-2 text-white">3</span>,
+                    <span class="px-2 text-cyber-yellow font-bold border-b-2 border-cyber-yellow">4</span>
+                    <span class="text-gray-400 font-bold"> ]</span>
+                    <div class="text-xs text-cyber-yellow mt-2">▲ Pivot-Element = 4 (letztes Element)</div>
+                </div>
+
+                <div class="bg-black/40 p-4 rounded border border-cyber-border space-y-4 font-mono text-sm">
+                    <label class="block text-gray-300 font-bold">
+                        Frage: Wie sieht das Array aus, nachdem die <u>erste Partitionierung (Partition-Step)</u> bezüglich des Pivots <code class="text-cyber-yellow">4</code> abgeschlossen wurde?
+                    </label>
+
+                    <div class="space-y-3">
+                        <button onclick="checkStage4('A')" class="option-btn-4 border border-cyber-border bg-cyber-card hover:border-cyber-cyan p-3 rounded text-left transition w-full text-xs font-mono text-gray-300">
+                            A) [ 2, 1, 3, <strong>4</strong>, 7, 6, 8, 5 ] &mdash; (Pivot 4 steht an Index 3, links &lt; 4, rechts &gt;= 4)
+                        </button>
+                        <button onclick="checkStage4('B')" class="option-btn-4 border border-cyber-border bg-cyber-card hover:border-cyber-cyan p-3 rounded text-left transition w-full text-xs font-mono text-gray-300">
+                            B) [ 1, 2, 3, 4, 5, 6, 7, 8 ] &mdash; (Array ist sofort vollkommen sortiert)
+                        </button>
+                        <button onclick="checkStage4('C')" class="option-btn-4 border border-cyber-border bg-cyber-card hover:border-cyber-cyan p-3 rounded text-left transition w-full text-xs font-mono text-gray-300">
+                            C) [ 4, 2, 1, 3, 6, 8, 5, 7 ] &mdash; (Pivot 4 wird ganz nach vorne gesetzt)
+                        </button>
+                        <button onclick="checkStage4('D')" class="option-btn-4 border border-cyber-border bg-cyber-card hover:border-cyber-cyan p-3 rounded text-left transition w-full text-xs font-mono text-gray-300">
+                            D) [ 7, 6, 8, 5, <strong>4</strong>, 2, 1, 3 ] &mdash; (Größere Elemente stehen links)
+                        </button>
+                    </div>
+
+                    <!-- Feedback Box -->
+                    <div id="feedback-stage4" class="hidden p-3 rounded font-mono text-xs font-bold"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- STAGE: KEYPAD / DOOR UNLOCK -->
+        <section id="keypad-stage" class="stage-content hidden space-y-6">
+            <div class="max-w-xl mx-auto bg-cyber-card border border-cyber-yellow/40 rounded-lg p-6 glow-cyan">
+                <div class="text-center mb-6">
+                    <span class="text-xs font-mono text-cyber-yellow tracking-widest uppercase">TERMINAL DOOR OVERRIDE</span>
+                    <h2 class="text-2xl font-mono font-bold text-white text-shadow-cyan flex items-center justify-center gap-2 mt-1">
+                        <i class="fa-solid fa-lock"></i> MASTER TÜR-SCHLOSS
+                    </h2>
+                    <p class="text-xs font-mono text-gray-400 mt-2">
+                        Gib den 4-stelligen Freischaltcode ein, den du in den Stages erbeutet hast.
+                    </p>
+                </div>
+
+                <!-- Display -->
+                <div class="bg-black p-4 rounded border border-cyber-border mb-6 text-center">
+                    <div id="keypad-display" class="font-mono text-3xl font-bold tracking-[0.5em] text-cyber-green text-shadow-green min-h-[40px] flex justify-center items-center">
+                        ----
+                    </div>
+                </div>
+
+                <!-- Keypad Buttons -->
+                <div class="grid grid-cols-3 gap-3 font-mono max-w-xs mx-auto mb-6">
+                    <button onclick="pressKey('1')" class="bg-gray-800 hover:bg-cyber-cyan hover:text-black border border-cyber-border text-white text-xl font-bold p-4 rounded transition">1</button>
+                    <button onclick="pressKey('2')" class="bg-gray-800 hover:bg-cyber-cyan hover:text-black border border-cyber-border text-white text-xl font-bold p-4 rounded transition">2</button>
+                    <button onclick="pressKey('3')" class="bg-gray-800 hover:bg-cyber-cyan hover:text-black border border-cyber-border text-white text-xl font-bold p-4 rounded transition">3</button>
+                    <button onclick="pressKey('4')" class="bg-gray-800 hover:bg-cyber-cyan hover:text-black border border-cyber-border text-white text-xl font-bold p-4 rounded transition">4</button>
+                    <button onclick="pressKey('5')" class="bg-gray-800 hover:bg-cyber-cyan hover:text-black border border-cyber-border text-white text-xl font-bold p-4 rounded transition">5</button>
+                    <button onclick="pressKey('6')" class="bg-gray-800 hover:bg-cyber-cyan hover:text-black border border-cyber-border text-white text-xl font-bold p-4 rounded transition">6</button>
+                    <button onclick="pressKey('7')" class="bg-gray-800 hover:bg-cyber-cyan hover:text-black border border-cyber-border text-white text-xl font-bold p-4 rounded transition">7</button>
+                    <button onclick="pressKey('8')" class="bg-gray-800 hover:bg-cyber-cyan hover:text-black border border-cyber-border text-white text-xl font-bold p-4 rounded transition">8</button>
+                    <button onclick="pressKey('9')" class="bg-gray-800 hover:bg-cyber-cyan hover:text-black border border-cyber-border text-white text-xl font-bold p-4 rounded transition">9</button>
+                    <button onclick="clearKeypad()" class="bg-cyber-red/20 border border-cyber-red text-cyber-red hover:bg-cyber-red hover:text-white text-sm font-bold p-4 rounded transition">CLR</button>
+                    <button onclick="pressKey('0')" class="bg-gray-800 hover:bg-cyber-cyan hover:text-black border border-cyber-border text-white text-xl font-bold p-4 rounded transition">0</button>
+                    <button onclick="submitKeypad()" class="bg-cyber-green/20 border border-cyber-green text-cyber-green hover:bg-cyber-green hover:text-black text-sm font-bold p-4 rounded transition">ENTER</button>
+                </div>
+
+                <div id="keypad-feedback" class="hidden text-center font-mono text-xs font-bold p-3 rounded"></div>
+            </div>
+        </section>
+
+        <!-- STAGE: VICTORY & CHEAT SHEET SUMMARY -->
+        <section id="victory-stage" class="stage-content hidden space-y-6">
+            <div class="bg-cyber-card border-2 border-cyber-green rounded-lg p-6 glow-green space-y-6">
+                <!-- Success Header -->
+                <div class="text-center space-y-2 border-b border-cyber-border pb-6">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-cyber-green/20 border-2 border-cyber-green text-cyber-green text-3xl mb-2 animate-bounce">
+                        <i class="fa-solid fa-door-open"></i>
+                    </div>
+                    <h2 class="text-3xl font-mono font-bold text-cyber-green text-shadow-green">
+                        SYSTEM ENTSPERRT &mdash; TÜR GEÖFFNET!
+                    </h2>
+                    <p class="font-mono text-sm text-gray-300">
+                        Hacker Ghost_Root wurde erfolgreich ausgesperrt. Ihr habt eure Informatik-Kenntnisse bewiesen!
+                    </p>
+                </div>
+
+                <!-- Learning Summary Cheat Sheet -->
+                <div class="space-y-4">
+                    <h3 class="text-lg font-mono font-bold text-cyber-cyan flex items-center gap-2">
+                        <i class="fa-solid fa-book-bookmark"></i> ZUSAMMENFASSUNG: SORTIERALGORITHMEN IN JAVA
+                    </h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+                        <!-- Bubblesort Card -->
+                        <div class="bg-black/60 p-4 border border-cyber-border rounded space-y-2">
+                            <h4 class="text-cyber-green font-bold text-sm flex justify-between">
+                                <span>1. Bubblesort</span>
+                                <span class="text-cyber-yellow">Iterativ</span>
+                            </h4>
+                            <p class="text-gray-300">Vertauscht fortlaufend benachbarte Paare, wenn sie falsch sortiert sind.</p>
+                            <div class="text-gray-400">
+                                <div>• Komplexität: <strong class="text-cyber-yellow">O(n²)</strong> (Average/Worst)</div>
+                                <div>• Merkmal: Größte Elemente wandern wie Blasen nach rechts.</div>
+                            </div>
+                        </div>
+
+                        <!-- Insertionsort Card -->
+                        <div class="bg-black/60 p-4 border border-cyber-border rounded space-y-2">
+                            <h4 class="text-cyber-magenta font-bold text-sm flex justify-between">
+                                <span>2. Insertionsort</span>
+                                <span class="text-cyber-yellow">Iterativ</span>
+                            </h4>
+                            <p class="text-gray-300">Sortieren durch Einfügen in den bereits sortierten linken Teilbereich.</p>
+                            <div class="text-gray-400">
+                                <div>• Komplexität: <strong class="text-cyber-yellow">O(n²)</strong> (Best-Case fast sortiert: <strong class="text-cyber-green">O(n)</strong>)</div>
+                                <div>• Merkmal: Effizient bei sehr kleinen oder bereits vorgeordneten Listen.</div>
+                            </div>
+                        </div>
+
+                        <!-- Selectionsort Card -->
+                        <div class="bg-black/60 p-4 border border-cyber-border rounded space-y-2">
+                            <h4 class="text-cyber-yellow font-bold text-sm flex justify-between">
+                                <span>3. Selectionsort</span>
+                                <span class="text-cyber-yellow">Iterativ</span>
+                            </h4>
+                            <p class="text-gray-300">Sucht das Minimum im unsortierten Teil und tauscht es an die nächste freie Position.</p>
+                            <div class="text-gray-400">
+                                <div>• Komplexität: <strong class="text-cyber-yellow">O(n²)</strong> in allen Fällen.</div>
+                                <div>• Merkmal: Minimale Anzahl an Schreibzugriffen / Swaps (<i>n</i> Vertauschungen).</div>
+                            </div>
+                        </div>
+
+                        <!-- Quicksort Card -->
+                        <div class="bg-black/60 p-4 border border-cyber-border rounded space-y-2">
+                            <h4 class="text-cyber-cyan font-bold text-sm flex justify-between">
+                                <span>4. Quicksort</span>
+                                <span class="text-cyber-cyan font-bold">Rekursiv</span>
+                            </h4>
+                            <p class="text-gray-300">Teile & Herrsche (Divide & Conquer) mittels Pivot-Element und Partitionierung.</p>
+                            <div class="text-gray-400">
+                                <div>• Komplexität: <strong class="text-cyber-cyan">O(n log n)</strong> (Worst-Case <strong class="text-cyber-yellow">O(n²)</strong>)</div>
+                                <div>• Merkmal: Sehr schnell in der Praxis, nutzt Rekursion.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reset Button for Replay -->
+                <div class="text-center pt-4">
+                    <button onclick="resetEntireGame()" class="bg-cyber-cyan text-black font-mono font-bold px-6 py-2.5 rounded hover:bg-cyan-400 transition">
+                        <i class="fa-solid fa-rotate-left"></i> Escape Room Neustarten
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-cyber-border bg-cyber-card py-3 px-4 font-mono text-xs text-center text-gray-500">
+        <span>Informatik Oberstufe // Sortieralgorithmen Escape Room &copy; 2026</span>
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // State variables
+        const CORRECT_PIN = ['2', 'B', 'B', 'A']; // Target Answers -> Digits reveal: 7 - 3 - 9 - 1
+        const PIN_DIGITS = ['7', '3', '9', '1'];
+        let unlockedDigits = [false, false, false, false];
+
+        // --- STAGE 1 LOGIC (Bubblesort) ---
+        let bArray = [5, 2, 1, 8, 4, 9];
+        let bCurrentIdx = 0;
+        let bSwaps = 0;
+
+        function renderBubblesortArray() {
+            const container = document.getElementById('bubblesort-array-container');
+            container.innerHTML = '';
+
+            bArray.forEach((val, idx) => {
+                const el = document.createElement('div');
+                let highlightClasses = "bg-cyber-card border-cyber-border text-white";
+                
+                if (idx === bCurrentIdx || idx === bCurrentIdx + 1) {
+                    highlightClasses = "bg-cyber-cyan/20 border-cyber-cyan text-cyber-cyan font-bold scale-105 shadow-md shadow-cyan-500/20";
+                }
+
+                el.className = `w-12 h-14 border-2 rounded flex flex-col justify-center items-center font-mono text-lg transition-all duration-200 ${highlightClasses}`;
+                el.innerHTML = `<span>${val}</span><span class="text-[9px] text-gray-500 mt-0.5">${idx}</span>`;
+                container.appendChild(el);
+            });
+
+            document.getElementById('b-index-compare').innerText = `${bCurrentIdx} & ${bCurrentIdx + 1}`;
+            document.getElementById('b-swap-count').innerText = bSwaps;
+        }
+
+        function bubblesortNextStep() {
+            if (bCurrentIdx < bArray.length - 2) {
+                bCurrentIdx++;
+            } else {
+                bCurrentIdx = 0; // Loop back for pass simulation
+            }
+            renderBubblesortArray();
+        }
+
+        function bubblesortSwap() {
+            if (bCurrentIdx < bArray.length - 1) {
+                if (bArray[bCurrentIdx] > bArray[bCurrentIdx + 1]) {
+                    let temp = bArray[bCurrentIdx];
+                    bArray[bCurrentIdx] = bArray[bCurrentIdx + 1];
+                    bArray[bCurrentIdx + 1] = temp;
+                    bSwaps++;
+                }
+            }
+            renderBubblesortArray();
+        }
+
+        function resetBubblesort() {
+            bArray = [5, 2, 1, 8, 4, 9];
+            bCurrentIdx = 0;
+            bSwaps = 0;
+            renderBubblesortArray();
+        }
+
+        function checkStage1(option) {
+            const fb = document.getElementById('feedback-stage1');
+            fb.classList.remove('hidden', 'bg-red-900/50', 'text-red-300', 'bg-green-900/50', 'text-green-300');
+            
+            // Correct answer is A: [2, 5, 1, 4, 8, 9] after Pass 1 on [5, 2, 1, 8, 4, 9]
+            if (option === 'A') {
+                fb.classList.add('bg-green-900/50', 'text-green-300', 'border', 'border-green-500');
+                fb.innerHTML = `<i class="fa-solid fa-circle-check"></i> Richtig! Nach Pass 1 wanderte die 5 über (5,2)->(2,5), (5,1)->(1,5) weiter, und die 8 stieg bis vor die 9 auf. Ziffer 1 freigeschaltet: <strong class="text-cyber-yellow text-sm">7</strong>`;
+                unlockDigit(0);
+            } else {
+                fb.classList.add('bg-red-900/50', 'text-red-300', 'border', 'border-red-500');
+                fb.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Falsch. Verfolge den Durchlauf genau: (5>2 -> swap [2,5,1,8,4,9]), (5>1 -> swap [2,1,5,8,4,9]), (5<8 -> no swap), (8>4 -> swap [2,1,5,4,8,9]), (8<9 -> no swap).`;
+            }
+        }
+
+        // --- STAGE 2 LOGIC (Insertionsort Debugging) ---
+        const codeSnippetLines = [
+            { num: 1, code: 'public static void insertionSort(int[] arr) {' },
+            { num: 2, code: '    for (int i = 1; i < arr.length; i++) {' },
+            { num: 3, code: '        int key = arr[i];' },
+            { num: 4, code: '        int j = i - 1;' },
+            { num: 5, code: '        // BUG HIER: Falscher Vergleich und Abbruchbedingung' },
+            { num: 6, code: '        while (j >= 0 && arr[j] < key) {  // BUG: < statt >' },
+            { num: 7, code: '            arr[j + 1] = arr[j];' },
+            { num: 8, code: '            j = j - 1;' },
+            { num: 9, code: '        }' },
+            { num: 10, code: '        arr[j + 1] = key;' },
+            { num: 11, code: '    }' },
+            { num: 12, code: '}' }
+        ];
+
+        let stage2CodeLineSelected = false;
+        let stage2SubSelected = false;
+
+        function renderCodeLines() {
+            const container = document.getElementById('code-lines-container');
+            container.innerHTML = '';
+
+            codeSnippetLines.forEach(line => {
+                const div = document.createElement('div');
+                div.className = "flex items-center px-4 py-1.5 hover:bg-cyber-cyan/10 cursor-pointer font-mono text-xs transition";
+                div.onclick = () => selectCodeLine(line.num);
+                div.innerHTML = `
+                    <span class="w-8 text-gray-600 select-none">${line.num}</span>
+                    <pre class="text-gray-200">${escapeHtml(line.code)}</pre>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function selectCodeLine(lineNum) {
+            const fb = document.getElementById('feedback-stage2');
+            fb.classList.remove('hidden', 'bg-red-900/50', 'text-red-300', 'bg-green-900/50', 'text-green-300');
+
+            if (lineNum === 6) {
+                stage2CodeLineSelected = true;
+                fb.classList.add('bg-green-900/50', 'text-green-300', 'border', 'border-green-500');
+                fb.innerHTML = `<i class="fa-solid fa-bug"></i> Bug gefunden! Zeile 6 enthält <code class="text-cyber-yellow">arr[j] < key</code>, was das Array absteigend statt aufsteigend sortieren würde! Es muss <code class="text-cyber-green">arr[j] > key</code> heißen. Beantworte nun die Zusatzfrage!`;
+            } else {
+                fb.classList.add('bg-red-900/50', 'text-red-300', 'border', 'border-red-500');
+                fb.innerHTML = `<i class="fa-solid fa-xmark"></i> Zeile ${lineNum} ist syntaktisch und logisch korrekt. Suche in der Schleifenbedingung nach dem falschen Vergleichsoperator!`;
+            }
+            checkStage2Complete();
+        }
+
+        function checkStage2Sub(option) {
+            if (option === 'B') {
+                stage2SubSelected = true;
+            } else {
+                stage2SubSelected = false;
+            }
+            checkStage2Complete();
+        }
+
+        function checkStage2Complete() {
+            const fb = document.getElementById('feedback-stage2');
+            if (stage2CodeLineSelected && stage2SubSelected) {
+                fb.classList.remove('hidden', 'bg-red-900/50', 'text-red-300');
+                fb.classList.add('bg-green-900/50', 'text-green-300', 'border', 'border-green-500');
+                fb.innerHTML = `<i class="fa-solid fa-circle-check"></i> Perfekt! Code-Bug gefunden & Insertionsort als iterativ O(n²) klassifiziert. Ziffer 2 freigeschaltet: <strong class="text-cyber-yellow text-sm">3</strong>`;
+                unlockDigit(1);
+            }
+        }
+
+        // --- STAGE 3 LOGIC (Selectionsort & Taxonomy) ---
+        let stage3MinChoice = null;
+        let algoAssignments = {
+            'Bubblesort': null,
+            'Quicksort': null,
+            'Insertionsort': null,
+            'Selectionsort': null
+        };
+
+        function selectMinChoice(opt) {
+            stage3MinChoice = opt;
+            document.querySelectorAll('.stage3-min-btn').forEach(btn => {
+                btn.classList.remove('border-cyber-yellow', 'bg-cyber-yellow/20');
+            });
+            event.currentTarget.classList.add('border-cyber-yellow', 'bg-cyber-yellow/20');
+        }
+
+        function assignAlgo(name) {
+            // Toggle assignment between iterative -> recursive -> unassigned
+            if (algoAssignments[name] === null) {
+                algoAssignments[name] = 'iterative';
+            } else if (algoAssignments[name] === 'iterative') {
+                algoAssignments[name] = 'recursive';
+            } else {
+                algoAssignments[name] = null;
+            }
+            renderTaxonomy();
+        }
+
+        function renderTaxonomy() {
+            const iterZone = document.getElementById('iterative-dropzone');
+            const recZone = document.getElementById('recursive-dropzone');
+            const pool = document.getElementById('algo-pool');
+
+            iterZone.innerHTML = '';
+            recZone.innerHTML = '';
+            pool.innerHTML = '';
+
+            Object.keys(algoAssignments).forEach(name => {
+                const state = algoAssignments[name];
+                const btn = document.createElement('button');
+                btn.onclick = () => assignAlgo(name);
+                btn.className = "px-3 py-1.5 rounded font-mono text-xs transition border ";
+
+                if (state === 'iterative') {
+                    btn.className += "bg-cyber-cyan/20 border-cyber-cyan text-cyber-cyan";
+                    btn.innerText = `${name} ✕`;
+                    iterZone.appendChild(btn);
+                } else if (state === 'recursive') {
+                    btn.className += "bg-cyber-magenta/20 border-cyber-magenta text-cyber-magenta";
+                    btn.innerText = `${name} ✕`;
+                    recZone.appendChild(btn);
+                } else {
+                    btn.className += "bg-gray-800 border-cyber-border text-gray-300 hover:border-white";
+                    btn.innerText = name;
+                    pool.appendChild(btn);
+                }
+            });
+        }
+
+        function checkStage3() {
+            const fb = document.getElementById('feedback-stage3');
+            fb.classList.remove('hidden', 'bg-red-900/50', 'text-red-300', 'bg-green-900/50', 'text-green-300');
+
+            const isMinCorrect = (stage3MinChoice === 'B'); // 10 is at Index 3
+            const isTaxonomyCorrect = (
+                algoAssignments['Bubblesort'] === 'iterative' &&
+                algoAssignments['Insertionsort'] === 'iterative' &&
+                algoAssignments['Selectionsort'] === 'iterative' &&
+                algoAssignments['Quicksort'] === 'recursive'
+            );
+
+            if (isMinCorrect && isTaxonomyCorrect) {
+                fb.classList.add('bg-green-900/50', 'text-green-300', 'border', 'border-green-500');
+                fb.innerHTML = `<i class="fa-solid fa-circle-check"></i> Richtig! Minimum (10 an Index 3) korrekt lokalisiert und Algorithmen präzise klassifiziert. Ziffer 3 freigeschaltet: <strong class="text-cyber-yellow text-sm">9</strong>`;
+                unlockDigit(2);
+            } else {
+                fb.classList.add('bg-red-900/50', 'text-red-300', 'border', 'border-red-500');
+                let errs = [];
+                if (!isMinCorrect) errs.push("Das Minimum im Array [14, 33, 27, 10, 35, 19] ist 10 an Index 3.");
+                if (!isTaxonomyCorrect) errs.push("Klassifikation prüfen: Quicksort ist rekursiv, die anderen 3 sind iterativ!");
+                fb.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ${errs.join(' ')}`;
+            }
+        }
+
+        // --- STAGE 4 LOGIC (Quicksort Partitioning) ---
+        function checkStage4(option) {
+            const fb = document.getElementById('feedback-stage4');
+            fb.classList.remove('hidden', 'bg-red-900/50', 'text-red-300', 'bg-green-900/50', 'text-green-300');
+
+            if (option === 'A') {
+                fb.classList.add('bg-green-900/50', 'text-green-300', 'border', 'border-green-500');
+                fb.innerHTML = `<i class="fa-solid fa-circle-check"></i> Hervorragend! Nach der Partitionierung bezüglich Pivot 4 befinden sich [2, 1, 3] links (&lt; 4) und [7, 6, 8, 5] rechts (&ge; 4). Ziffer 4 freigeschaltet: <strong class="text-cyber-yellow text-sm">1</strong>`;
+                unlockDigit(3);
+            } else {
+                fb.classList.add('bg-red-900/50', 'text-red-300', 'border', 'border-red-500');
+                fb.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Falsch. Erinnere dich: Nach 1 Partitionsschritt sind nur alle Elemente kleiner als 4 links und alle größeren rechts vom Pivot. Das Gesamt-Array muss noch nicht vollständig sortiert sein!`;
+            }
+        }
+
+        // --- UNLOCK & KEYPAD LOGIC ---
+        function unlockDigit(idx) {
+            unlockedDigits[idx] = true;
+            document.getElementById(`d${idx + 1}`).innerText = PIN_DIGITS[idx];
+            document.getElementById(`d${idx + 1}`).classList.add('text-cyber-green', 'border-cyber-green');
+        }
+
+        let keypadInput = "";
+
+        function pressKey(num) {
+            if (keypadInput.length < 4) {
+                keypadInput += num;
+                updateKeypadDisplay();
+            }
+        }
+
+        function clearKeypad() {
+            keypadInput = "";
+            updateKeypadDisplay();
+        }
+
+        function updateKeypadDisplay() {
+            const disp = document.getElementById('keypad-display');
+            disp.innerText = keypadInput.padEnd(4, '-');
+        }
+
+        function submitKeypad() {
+            const fb = document.getElementById('keypad-feedback');
+            fb.classList.remove('hidden', 'bg-red-900/50', 'text-red-300', 'bg-green-900/50', 'text-green-300');
+
+            const masterPIN = PIN_DIGITS.join('');
+
+            if (keypadInput === masterPIN) {
+                fb.classList.add('bg-green-900/50', 'text-green-300', 'border', 'border-green-500');
+                fb.innerText = "ACCESS GRANTED. TÜR WIRD ENTSPERRT...";
+                setTimeout(() => {
+                    switchTab('victory-stage');
+                }, 1000);
+            } else {
+                fb.classList.add('bg-red-900/50', 'text-red-300', 'border', 'border-red-500');
+                fb.innerText = "ZUGRIFF VERWEIGERT! FALSCHER PIN-CODE.";
+            }
+        }
+
+        // --- HELPER / NAVIGATION ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.stage-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-cyber-green', 'text-black');
+                btn.classList.add('bg-cyber-card', 'text-gray-400');
+            });
+
+            const activeTabBtn = document.getElementById(`tab-${tabId}`);
+            if (activeTabBtn) {
+                activeTabBtn.classList.remove('bg-cyber-card', 'text-gray-400');
+                activeTabBtn.classList.add('bg-cyber-green', 'text-black');
+            }
+        }
+
+        function toggleHint(hintId) {
+            const hintEl = document.getElementById(hintId);
+            hintEl.classList.toggle('hidden');
+        }
+
+        function resetEntireGame() {
+            unlockedDigits = [false, false, false, false];
+            for (let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`d${i}`);
+                el.innerText = '?';
+                el.classList.remove('text-cyber-green', 'border-cyber-green');
+            }
+            resetBubblesort();
+            stage2CodeLineSelected = false;
+            stage2SubSelected = false;
+            stage3MinChoice = null;
+            algoAssignments = { 'Bubblesort': null, 'Quicksort': null, 'Insertionsort': null, 'Selectionsort': null };
+            renderTaxonomy();
+            keypadInput = "";
+            updateKeypadDisplay();
+            switchTab('intro');
+        }
+
+        // Initialize view on load
+        window.onload = function() {
+            renderBubblesortArray();
+            renderCodeLines();
+            renderTaxonomy();
+        };
+    </script>
+</body>
+</html>
